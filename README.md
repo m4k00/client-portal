@@ -290,4 +290,4 @@ Built as a production-ready portfolio piece demonstrating:
 
 ---
 
-**Made with ❤️ and Claude**
+**Made with ❤️ by [Sergio de la Garza](https://github.com/m4k00) and Claude**
