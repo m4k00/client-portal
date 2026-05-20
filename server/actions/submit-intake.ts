@@ -5,15 +5,26 @@ import { submissions, assessments } from "@/server/db/schema";
 import { IntakeFormData, intakeFormSchema } from "@/lib/validators";
 import { headers } from "next/headers";
 import { generateAssessment } from "@/server/ai/generate-assessment";
+import { sendAdminNotification } from "@/server/email/send-notification";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function submitIntake(data: IntakeFormData) {
   try {
     // Validate input
     const validatedData = intakeFormSchema.parse(data);
 
-    // Get IP address for rate limiting (will implement in Phase 7)
+    // Get IP address for rate limiting
     const headersList = await headers();
     const ipAddress = headersList.get("x-forwarded-for") || headersList.get("x-real-ip") || "unknown";
+
+    // Check rate limit
+    const rateLimitResult = await checkRateLimit(ipAddress);
+    if (!rateLimitResult.success) {
+      return {
+        success: false,
+        error: `Too many submissions. Please try again in ${Math.ceil((rateLimitResult.reset || 0) / 60)} minutes.`,
+      };
+    }
 
     // Store submission
     const [submission] = await db
@@ -53,8 +64,14 @@ export async function submitIntake(data: IntakeFormData) {
       });
     }
 
-    // TODO Phase 7: Add rate limiting check
-    // TODO Phase 7: Send email notification
+    // Send email notification
+    await sendAdminNotification({
+      submissionId: submission.id,
+      clientName: submission.clientName,
+      clientEmail: submission.clientEmail,
+      projectType: submission.projectType,
+      complexityRating: assessmentResult.assessment?.complexity_rating,
+    });
 
     return {
       success: true,
